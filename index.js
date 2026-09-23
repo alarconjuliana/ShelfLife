@@ -1,432 +1,632 @@
+/* ShelfLife prototype logic. Vanilla JS, no build step.
+   State lives in memory and is written to localStorage on every change.
+   Functions are global because the markup calls them from inline handlers. */
+
 const STORAGE_KEY = "shelflife_items_v2";
+const HISTORY_KEY = "shelflife_history_v2";
 const AUTH_KEY = "shelflife_auth_user";
+const THEME_KEY = "shelflife_theme";
+
+const CATEGORIES = {
+  fridge: "Fridge",
+  pantry: "Pantry",
+  medicine: "Medicine",
+  cosmetics: "Cosmetics",
+  gobag: "Go-bag",
+};
+
+/* History actions and the status colour each one borrows. */
+const ACTION_TIER = {
+  Consumed: "good",
+  Rotated: "good",
+  Discarded: "critical",
+  Removed: "expired",
+};
 
 let currentCategory = "all";
-let currentAuthUser = JSON.parse(localStorage.getItem(AUTH_KEY)) || null;
-let deletedItemBackup = null;
+let currentHistoryFilter = "all";
+let currentAuthUser = readJSON(AUTH_KEY, null);
+let undoSnapshot = null;
 
-// Pre-seeded items including kitchen supplies AND Emergency Go-Bag supplies
-const sampleItems = [
-  {
-    id: "1",
-    name: "Water Purification Tablets (50-pk)",
-    category: "gobag",
-    date: getFutureDate(180),
-  },
-  {
-    id: "2",
-    name: "Emergency Ration Biscuits",
-    category: "gobag",
-    date: getFutureDate(60),
-  },
-  {
-    id: "3",
-    name: "Antiseptic & First Aid Ointment",
-    category: "gobag",
-    date: getFutureDate(30),
-  },
-  {
-    id: "4",
-    name: "Fresh Milk 1L",
-    category: "fridge",
-    date: getFutureDate(1),
-  },
-  {
-    id: "5",
-    name: "Eggs (Dozen)",
-    category: "fridge",
-    date: getFutureDate(3),
-  },
-  {
-    id: "6",
-    name: "Sourdough Loaf",
-    category: "pantry",
-    date: getFutureDate(0),
-  },
-  {
-    id: "7",
-    name: "Paracetamol 500mg",
-    category: "medicine",
-    date: getFutureDate(45),
-  },
-  {
-    id: "8",
-    name: "Flashlight D-Cell Batteries",
-    category: "gobag",
-    date: getFutureDate(120),
-  },
-];
+/* ---------- Dates. The app is date-only and works in local time. ---------- */
 
-let items = loadStoredItems();
+function toISODate(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
 
-function getFutureDate(offsetDays) {
+function isoDaysFromNow(offset) {
   const d = new Date();
-  d.setDate(d.getDate() + offsetDays);
-  return d.toISOString().split("T")[0];
+  d.setDate(d.getDate() + offset);
+  return toISODate(d);
 }
 
-function loadStoredItems() {
-  const stored = localStorage.getItem(STORAGE_KEY);
-  if (stored) {
-    try {
-      return JSON.parse(stored);
-    } catch (e) {
-      console.error(e);
-    }
-  }
-  return [...sampleItems];
+function hoursAgo(h) {
+  return new Date(Date.now() - h * 3600000).toISOString();
 }
 
-function saveItems() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
-  renderItems();
-}
-
-function seedSampleData() {
-  items = [...sampleItems];
-  saveItems();
-  showToast("Demo inventory restored with Go-Bag items!");
-}
-
-/* Date Math & Relative Days */
-function getDaysRemaining(dateStr) {
-  const target = new Date(dateStr + "T00:00:00");
+function daysUntil(dateStr) {
+  const [y, m, d] = String(dateStr).split("-").map(Number);
+  const target = new Date(y, m - 1, d);
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const diffTime = target - today;
-  return Math.round(diffTime / (1000 * 60 * 60 * 24));
+  return Math.round((target - today) / 86400000);
 }
 
-function getItemStatus(days) {
-  if (days < 0) return { label: "Expired", badgeClass: "badge-expired" };
-  if (days === 0) return { label: "Use Today", badgeClass: "badge-danger" };
-  if (days <= 3) return { label: `${days}d left`, badgeClass: "badge-warning" };
-  return { label: `${days}d left`, badgeClass: "badge-fresh" };
+/* Status tiers: Expired (< 0), Use today (0), Urgent (1 to 3), Soon (4 to 7), Good (8+) */
+function tierFor(days) {
+  if (days < 0) return { tier: "expired", label: "Expired" };
+  if (days === 0) return { tier: "critical", label: "Use today" };
+  if (days <= 3) return { tier: "urgent", label: "Urgent" };
+  if (days <= 7) return { tier: "soon", label: "Soon" };
+  return { tier: "good", label: "Good" };
 }
 
-function formatCategoryLabel(cat) {
-  switch (cat) {
-    case "gobag":
-      return "🎒 Emergency Go-Bag";
-    case "fridge":
-      return "Fridge";
-    case "pantry":
-      return "Pantry";
-    case "medicine":
-      return "Medicine";
-    case "cosmetics":
-      return "Cosmetics";
-    default:
-      return capitalize(cat);
+/* ---------- Demo data ---------- */
+
+function sampleItems() {
+  return [
+    { id: "1", name: "Water purification tablets (50 pack)", category: "gobag", date: isoDaysFromNow(180) },
+    { id: "2", name: "Canned tuna in oil", category: "gobag", date: isoDaysFromNow(5) },
+    { id: "3", name: "Fresh whole milk, 1 L", category: "fridge", date: isoDaysFromNow(2) },
+    { id: "4", name: "Sourdough loaf", category: "pantry", date: isoDaysFromNow(0) },
+    { id: "5", name: "Greek yogurt cup", category: "fridge", date: isoDaysFromNow(-2) },
+    { id: "6", name: "Flashlight batteries (AA)", category: "gobag", date: isoDaysFromNow(90) },
+  ];
+}
+
+function sampleHistory() {
+  return [
+    { id: "h1", name: "Wheat bread", category: "pantry", date: isoDaysFromNow(-4), action: "Consumed", note: "", loggedAt: hoursAgo(26) },
+    { id: "h2", name: "Cheddar cheese", category: "fridge", date: isoDaysFromNow(-8), action: "Discarded", note: "expired", loggedAt: hoursAgo(5 * 24 + 3) },
+    { id: "h3", name: "Duplicate milk entry", category: "fridge", date: isoDaysFromNow(3), action: "Removed", note: "", loggedAt: hoursAgo(6 * 24 + 7) },
+  ];
+}
+
+/* ---------- Storage ---------- */
+
+function readJSON(key, fallback) {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
+  } catch (e) {
+    console.error(e);
+    return fallback;
   }
 }
 
-/* Render Tracker Items */
+let items = readJSON(STORAGE_KEY, null) || sampleItems();
+let history = readJSON(HISTORY_KEY, null) || sampleHistory();
+
+function persist() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+  localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+  renderAll();
+}
+
+/* Every destructive action snapshots both lists first so the toast can undo it. */
+function snapshot() {
+  undoSnapshot = { items: items.slice(), history: history.slice() };
+}
+
+function undo() {
+  if (!undoSnapshot) return;
+  items = undoSnapshot.items;
+  history = undoSnapshot.history;
+  undoSnapshot = null;
+  persist();
+  showToast("Undone");
+}
+
+function newId() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+}
+
+/* ---------- Rendering ---------- */
+
+function renderAll() {
+  renderNextUp();
+  renderItems();
+  renderHistory();
+}
+
+function daysMarkup(days) {
+  const n = Math.abs(days);
+  const unit = n === 1 ? "day" : "days";
+  const suffix = days < 0 ? "ago" : "left";
+  return `<div class="days"><span class="days-n">${n}</span><span class="days-l">${unit} ${suffix}</span></div>`;
+}
+
+function emptyMarkup(title, body) {
+  return `<div class="empty"><strong>${title}</strong><span>${body}</span></div>`;
+}
+
+function countLabel(n, singular, plural) {
+  return `${n} ${n === 1 ? singular : plural}`;
+}
+
+/* Hero panel: the three items with the fewest days left. */
+function renderNextUp() {
+  const list = document.getElementById("nextUpList");
+  const foot = document.getElementById("nextUpFoot");
+  const dateEl = document.getElementById("nextUpDate");
+  if (!list) return;
+
+  if (dateEl) {
+    dateEl.textContent = new Date().toLocaleDateString("en-PH", { month: "short", day: "numeric" });
+  }
+
+  const soonest = items
+    .map((item) => ({ ...item, days: daysUntil(item.date) }))
+    .sort((a, b) => a.days - b.days)
+    .slice(0, 3);
+
+  if (soonest.length === 0) {
+    list.innerHTML = `<li class="next-up-empty">Nothing tracked yet. Add your first item in the tracker.</li>`;
+    if (foot) foot.textContent = "";
+    return;
+  }
+
+  list.innerHTML = soonest
+    .map((item) => {
+      const status = tierFor(item.days);
+      return `
+        <li class="tier-${status.tier}">
+          ${daysMarkup(item.days)}
+          <div class="row-main">
+            <div class="row-name">${escapeHtml(item.name)}</div>
+            <div class="row-meta">
+              <span>${categoryLabel(item.category)}</span>
+              <span class="badge">${status.label}</span>
+            </div>
+          </div>
+        </li>`;
+    })
+    .join("");
+
+  if (foot) foot.textContent = `${countLabel(items.length, "item", "items")} tracked in this browser`;
+}
+
 function renderItems() {
   const container = document.getElementById("itemsContainer");
   if (!container) return;
 
-  const search = (
-    document.getElementById("searchInput")?.value || ""
-  ).toLowerCase();
+  const search = (document.getElementById("searchInput")?.value || "").trim().toLowerCase();
   const sortBy = document.getElementById("sortSelect")?.value || "urgency";
 
-  let filtered = items.filter((item) => {
-    const matchesSearch = item.name.toLowerCase().includes(search);
-    if (!matchesSearch) return false;
+  const visible = items
+    .map((item) => ({ ...item, days: daysUntil(item.date) }))
+    .filter((item) => {
+      if (search && !item.name.toLowerCase().includes(search)) return false;
+      if (currentCategory === "all") return true;
+      if (currentCategory === "critical") return item.days <= 3;
+      return item.category === currentCategory;
+    })
+    .sort((a, b) => {
+      if (sortBy === "name") return a.name.localeCompare(b.name);
+      if (sortBy === "category") return a.category.localeCompare(b.category) || a.days - b.days;
+      return a.days - b.days;
+    });
 
-    const days = getDaysRemaining(item.date);
-    if (currentCategory === "all") return true;
-    if (currentCategory === "critical") return days <= 3;
-    return item.category === currentCategory;
-  });
-
-  // Sorting
-  filtered.sort((a, b) => {
-    if (sortBy === "urgency") {
-      return getDaysRemaining(a.date) - getDaysRemaining(b.date);
-    } else if (sortBy === "name") {
-      return a.name.localeCompare(b.name);
-    } else if (sortBy === "category") {
-      return a.category.localeCompare(b.category);
-    }
-    return 0;
-  });
-
-  if (filtered.length === 0) {
-    container.innerHTML = `
-      <div style="text-align:center; padding:32px 16px; color:var(--slate-400);">
-        <p style="font-size:1.8rem; margin-bottom:8px;">🎒</p>
-        <p style="font-weight:600;">No items found in this section</p>
-        <small>Adjust filters or add a new supply above.</small>
-      </div>
-    `;
+  if (visible.length === 0) {
+    container.innerHTML =
+      items.length === 0
+        ? emptyMarkup("Nothing tracked yet", "Add your first item with the button above.")
+        : emptyMarkup("No items match", "Try another category or clear the search.");
   } else {
-    container.innerHTML = filtered
-      .map((item) => {
-        const days = getDaysRemaining(item.date);
-        const status = getItemStatus(days);
-        const isGoBag = item.category === "gobag";
-
-        return `
-          <div class="item-card ${isGoBag ? "item-card-gobag" : ""}">
-            <div class="item-card-left">
-              <div class="item-info">
-                <h5>${escapeHtml(item.name)}</h5>
-                <div class="item-meta">
-                  <span style="${isGoBag ? "color:#e11d48; font-weight:700;" : ""}">${formatCategoryLabel(item.category)}</span>
-                  <span>•</span>
-                  <span>Exp: ${item.date}</span>
-                </div>
-              </div>
-            </div>
-            <div class="item-card-right">
-              <span class="status-badge ${status.badgeClass}">${status.label}</span>
-              <button class="action-btn-icon" onclick="deleteItem('${item.id}')" title="Mark Used / Rotated">✓</button>
-            </div>
-          </div>
-        `;
-      })
-      .join("");
+    container.innerHTML = visible.map(itemRow).join("");
   }
 
   const summary = document.getElementById("itemsSummaryCount");
   if (summary) {
-    summary.textContent = `${items.length} item${items.length === 1 ? "" : "s"} tracked`;
+    const shown = visible.length !== items.length ? `, ${visible.length} shown` : "";
+    summary.textContent = countLabel(items.length, "item", "items") + shown;
   }
 }
 
-/* CRUD Operations */
+function itemRow(item) {
+  const status = tierFor(item.days);
+  const isGoBag = item.category === "gobag";
+  return `
+    <div class="row tier-${status.tier}">
+      ${daysMarkup(item.days)}
+      <div class="row-main">
+        <div class="row-name">${escapeHtml(item.name)}</div>
+        <div class="row-meta">
+          <span class="${isGoBag ? "tag" : ""}">${categoryLabel(item.category)}</span>
+          <span class="stamp">EXP ${escapeHtml(item.date)}</span>
+          <span class="badge">${status.label}</span>
+        </div>
+      </div>
+      <div class="row-actions">
+        <button type="button" class="btn btn-secondary btn-sm" onclick="consumeItem('${item.id}')">
+          ${isGoBag ? "Mark rotated" : "Mark consumed"}
+        </button>
+        <button type="button" class="btn btn-quiet btn-sm" onclick="discardItem('${item.id}')">Discard</button>
+        <button type="button" class="btn btn-quiet btn-sm" onclick="removeItem('${item.id}')">Remove</button>
+      </div>
+    </div>`;
+}
+
+/* Reads a history record's action. Older records stored the note inside the
+   action string, for example "Discarded (Expired)" or "Deleted". */
+function actionParts(record) {
+  const match = /^(\w+)\s*(?:\((.*)\))?$/.exec(record.action || "") || [];
+  let verb = match[1] || "Removed";
+  if (verb === "Deleted") verb = "Removed";
+
+  let note = record.note || "";
+  if (!note && match[2]) {
+    const legacy = match[2].toLowerCase();
+    if (legacy === "expired") note = "expired";
+    if (legacy === "waste") note = "before expiry";
+  }
+  return { verb, note, tier: ACTION_TIER[verb] || "expired" };
+}
+
+function matchesHistoryFilter(record) {
+  if (currentHistoryFilter === "all") return true;
+  const { verb } = actionParts(record);
+  if (currentHistoryFilter === "Consumed") return verb === "Consumed" || verb === "Rotated";
+  return verb === currentHistoryFilter;
+}
+
+function formatLogged(record) {
+  if (record.loggedAt) {
+    const d = new Date(record.loggedAt);
+    if (!Number.isNaN(d.getTime())) {
+      return d.toLocaleString("en-PH", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+    }
+  }
+  return record.timestamp || "";
+}
+
+function renderHistory() {
+  const container = document.getElementById("historyContainer");
+  const count = document.getElementById("historyCountBadge");
+  if (count) count.textContent = countLabel(history.length, "record", "records");
+  if (!container) return;
+
+  const visible = history.filter(matchesHistoryFilter);
+
+  if (visible.length === 0) {
+    container.innerHTML =
+      history.length === 0
+        ? emptyMarkup("No history yet", "Items you consume, discard, or remove will be logged here.")
+        : emptyMarkup("Nothing in this filter", "Choose another filter to see more of the log.");
+    return;
+  }
+
+  container.innerHTML = visible
+    .map((record) => {
+      const { verb, note, tier } = actionParts(record);
+      return `
+        <div class="row row-log tier-${tier}">
+          <div class="row-main">
+            <div class="row-name">${escapeHtml(record.name)}</div>
+            <div class="row-meta">
+              <span>${categoryLabel(record.category)}</span>
+              <span>Logged ${escapeHtml(formatLogged(record))}</span>
+            </div>
+          </div>
+          <div class="row-actions">
+            <span class="badge">${verb}${note ? `, ${note}` : ""}</span>
+            <button type="button" class="btn btn-quiet btn-sm" onclick="restoreFromHistory('${record.id}')">Restore</button>
+          </div>
+        </div>`;
+    })
+    .join("");
+}
+
+/* ---------- Item actions ---------- */
+
+function logRecord(item, action, note) {
+  return {
+    id: "h_" + newId(),
+    name: item.name,
+    category: item.category,
+    date: item.date,
+    action,
+    note: note || "",
+    loggedAt: new Date().toISOString(),
+  };
+}
+
+function archiveItem(id, action, note, toastText) {
+  const idx = items.findIndex((item) => item.id === id);
+  if (idx === -1) return;
+  const item = items[idx];
+  snapshot();
+  items.splice(idx, 1);
+  history.unshift(logRecord(item, action, note));
+  persist();
+  showToast(toastText, { canUndo: true });
+}
+
+function consumeItem(id) {
+  const item = items.find((entry) => entry.id === id);
+  if (!item) return;
+  const rotated = item.category === "gobag";
+  archiveItem(id, rotated ? "Rotated" : "Consumed", "", `${rotated ? "Marked rotated" : "Marked consumed"}: ${item.name}`);
+}
+
+function discardItem(id) {
+  const item = items.find((entry) => entry.id === id);
+  if (!item) return;
+  const expired = daysUntil(item.date) < 0;
+  archiveItem(id, "Discarded", expired ? "expired" : "before expiry", `Discarded: ${item.name}`);
+}
+
+function removeItem(id) {
+  const item = items.find((entry) => entry.id === id);
+  if (!item) return;
+  archiveItem(id, "Removed", "", `Removed: ${item.name}`);
+}
+
+function clearExpired() {
+  const expired = items.filter((item) => daysUntil(item.date) < 0);
+  if (expired.length === 0) {
+    showToast("No expired items to discard");
+    return;
+  }
+  snapshot();
+  const records = expired.map((item) => logRecord(item, "Discarded", "expired"));
+  items = items.filter((item) => daysUntil(item.date) >= 0);
+  history = records.concat(history);
+  persist();
+  showToast(`Discarded ${countLabel(expired.length, "expired item", "expired items")}`, { canUndo: true });
+}
+
+function restoreFromHistory(historyId) {
+  const idx = history.findIndex((record) => record.id === historyId);
+  if (idx === -1) return;
+  const record = history[idx];
+  snapshot();
+  items.unshift({
+    id: newId(),
+    name: record.name,
+    category: record.category,
+    date: record.date || isoDaysFromNow(7),
+  });
+  history.splice(idx, 1);
+  persist();
+  showToast(`Restored: ${record.name}`, { canUndo: true });
+}
+
+function clearHistory() {
+  if (history.length === 0) {
+    showToast("History is already empty");
+    return;
+  }
+  snapshot();
+  history = [];
+  persist();
+  showToast("History cleared", { canUndo: true });
+}
+
+function seedSampleData() {
+  snapshot();
+  items = sampleItems();
+  persist();
+  showToast("Demo items restored", { canUndo: true });
+}
+
+/* ---------- Add item form ---------- */
+
 function handleAddItem(e) {
   e.preventDefault();
-  const nameInput = document.getElementById("itemNameInput");
-  const catInput = document.getElementById("itemCategorySelect");
-  const dateInput = document.getElementById("itemDateInput");
-
-  const name = nameInput.value.trim();
-  const category = catInput.value;
-  const date = dateInput.value;
-
+  const name = document.getElementById("itemNameInput").value.trim();
+  const category = document.getElementById("itemCategorySelect").value;
+  const date = document.getElementById("itemDateInput").value;
   if (!name || !date) return;
 
-  const newItem = {
-    id: Date.now().toString(),
-    name,
-    category,
-    date,
-  };
-
-  items.unshift(newItem);
-  saveItems();
-  document.getElementById("addItemForm").reset();
-  toggleAddForm();
-  showToast(`Added "${newItem.name}" to inventory!`);
+  items.unshift({ id: newId(), name, category, date });
+  persist();
+  e.target.reset();
+  setDefaultDate();
+  toggleAddForm(false);
+  showToast(`Added: ${name}`);
 }
 
-function deleteItem(id) {
-  const idx = items.findIndex((item) => item.id === id);
-  if (idx !== -1) {
-    deletedItemBackup = { item: items[idx], index: idx };
-    items.splice(idx, 1);
-    saveItems();
-    showToast("Item marked as used / rotated!", true);
-  }
+function toggleAddForm(force) {
+  const form = document.getElementById("addItemForm");
+  const toggle = document.getElementById("addToggle");
+  if (!form || !toggle) return;
+  const open = typeof force === "boolean" ? force : form.hidden;
+  form.hidden = !open;
+  toggle.setAttribute("aria-expanded", String(open));
+  if (open) document.getElementById("itemNameInput").focus();
 }
 
-function undoDelete() {
-  if (deletedItemBackup) {
-    items.splice(deletedItemBackup.index, 0, deletedItemBackup.item);
-    deletedItemBackup = null;
-    saveItems();
-    showToast("Action undone!");
-  }
+function setDefaultDate() {
+  const input = document.getElementById("itemDateInput");
+  if (!input) return;
+  input.value = isoDaysFromNow(7);
 }
 
-function consumeAllExpired() {
-  const initialCount = items.length;
-  items = items.filter((item) => getDaysRemaining(item.date) >= 0);
-  const diff = initialCount - items.length;
-  if (diff > 0) {
-    saveItems();
-    showToast(`Cleared ${diff} expired item${diff === 1 ? "" : "s"}!`);
-  } else {
-    showToast("No expired items found.");
-  }
+/* ---------- Filters ---------- */
+
+function pressOnly(btn) {
+  btn.parentElement.querySelectorAll(".chip").forEach((chip) => {
+    chip.setAttribute("aria-pressed", String(chip === btn));
+  });
 }
 
-function setCategoryFilter(category, btnElement) {
+function setCategoryFilter(category, btn) {
   currentCategory = category;
-  document
-    .querySelectorAll(".filter-pill")
-    .forEach((pill) => pill.classList.remove("active"));
-  btnElement.classList.add("active");
+  pressOnly(btn);
   renderItems();
 }
 
-function toggleAddForm() {
-  const form = document.getElementById("addItemForm");
-  const chevron = document.getElementById("formChevron");
-  form.classList.toggle("open");
-  chevron.textContent = form.classList.contains("open") ? "▲" : "▼";
-  if (form.classList.contains("open")) {
-    document.getElementById("itemNameInput").focus();
-  }
+function setHistoryFilter(filter, btn) {
+  currentHistoryFilter = filter;
+  pressOnly(btn);
+  renderHistory();
 }
 
-/* Philippine Peso Calculator Engine */
+/* ---------- Savings estimate (Philippine pesos) ---------- */
+
 function updateCalculator() {
   const familySlider = document.getElementById("familySizeSlider");
   const spendSlider = document.getElementById("spendSlider");
   if (!familySlider || !spendSlider) return;
 
-  const familySize = parseInt(familySlider.value, 10);
-  const weeklySpend = parseInt(spendSlider.value, 10);
+  const familySize = Number(familySlider.value);
+  const weeklySpend = Number(spendSlider.value);
 
-  document.getElementById("familySizeLabel").textContent =
-    `${familySize} ${familySize === 1 ? "person" : "people"}`;
+  document.getElementById("familySizeLabel").textContent = countLabel(familySize, "person", "people");
   document.getElementById("spendLabel").textContent = formatPeso(weeklySpend);
 
-  const annualSpend = weeklySpend * 52;
-  const estimatedSavings = Math.round(annualSpend * 0.18);
-  const wasteDivertedKg = Math.round(familySize * 48);
+  // Illustrative assumptions, stated in the UI: 18% of grocery spend is lost
+  // to expired food and 48 kg of avoidable waste per person per year.
+  const savings = Math.round(weeklySpend * 52 * 0.18);
+  const wasteKg = familySize * 48;
 
-  document.getElementById("annualSavingsVal").textContent =
-    formatPeso(estimatedSavings);
-  document.getElementById("wasteDivertedVal").textContent =
-    `${wasteDivertedKg} kg`;
+  document.getElementById("annualSavingsVal").textContent = formatPeso(savings);
+  document.getElementById("wasteDivertedVal").textContent = `${wasteKg} kg`;
 }
 
-function formatPeso(val) {
-  return "₱" + val.toLocaleString("en-PH");
+function formatPeso(value) {
+  return "₱" + value.toLocaleString("en-PH");
 }
 
-/* FAQ Accordion */
-function toggleFaq(button) {
-  const item = button.parentElement;
-  const isActive = item.classList.contains("active");
-  document.querySelectorAll(".faq-item").forEach((i) => {
-    i.classList.remove("active");
-    i.querySelector(".faq-chevron").textContent = "▼";
-  });
-  if (!isActive) {
-    item.classList.add("active");
-    item.querySelector(".faq-chevron").textContent = "▲";
-  }
-}
+/* ---------- Toasts ---------- */
 
-/* Toast Notification */
-function showToast(message, allowUndo = false) {
-  const container = document.getElementById("toastContainer");
-  if (!container) return;
+function showToast(message, { canUndo = false } = {}) {
+  const region = document.getElementById("toastContainer");
+  if (!region) return;
 
   const toast = document.createElement("div");
   toast.className = "toast";
-  toast.innerHTML = `
-    <span>${message}</span>
-    ${allowUndo ? '<button class="toast-undo" onclick="undoDelete()">Undo</button>' : ""}
-  `;
-  container.appendChild(toast);
-  setTimeout(() => {
-    toast.style.opacity = "0";
-    toast.style.transform = "translateY(10px)";
-    toast.style.transition = "all 0.3s ease";
-    setTimeout(() => toast.remove(), 300);
-  }, 3500);
+
+  const text = document.createElement("span");
+  text.textContent = message;
+  toast.appendChild(text);
+
+  let timer = null;
+  const dismiss = () => {
+    clearTimeout(timer);
+    toast.dataset.leaving = "true";
+    setTimeout(() => toast.remove(), 220);
+  };
+
+  if (canUndo) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = "Undo";
+    button.onclick = () => {
+      undo();
+      dismiss();
+    };
+    toast.appendChild(button);
+  }
+
+  region.appendChild(toast);
+  timer = setTimeout(dismiss, canUndo ? 6000 : 3200);
 }
 
-/* Auth & User Session Simulation */
-let isSignUpMode = false;
-function openAuthModal(mode = "signin") {
-  isSignUpMode = mode === "signup";
-  updateAuthModalUI();
-  document.getElementById("authModal").classList.add("active");
+/* ---------- Demo sign-in (browser only, no server) ---------- */
+
+function openAuthDialog() {
+  const dialog = document.getElementById("authDialog");
+  if (dialog && !dialog.open) dialog.showModal();
 }
 
-function toggleAuthMode() {
-  isSignUpMode = !isSignUpMode;
-  updateAuthModalUI();
-}
-
-function updateAuthModalUI() {
-  document.getElementById("authModalTitle").textContent = isSignUpMode
-    ? "Create a ShelfLife Account"
-    : "Sign In to ShelfLife";
-  document.getElementById("authSubmitBtn").textContent = isSignUpMode
-    ? "Create Account"
-    : "Sign In";
-  document.getElementById("authToggleLink").textContent = isSignUpMode
-    ? "Already have an account? Sign In"
-    : "Don't have an account? Create one";
+function closeAuthDialog() {
+  const dialog = document.getElementById("authDialog");
+  if (dialog && dialog.open) dialog.close();
 }
 
 function handleAuthSubmit(e) {
   e.preventDefault();
   const email = document.getElementById("authEmailInput").value.trim();
+  if (!email) return;
   currentAuthUser = { email, name: email.split("@")[0] };
   localStorage.setItem(AUTH_KEY, JSON.stringify(currentAuthUser));
-  closeModal("authModal");
+  e.target.reset();
+  closeAuthDialog();
   renderAuthState();
-  showToast(`Welcome, ${currentAuthUser.name}!`);
+  showToast(`Signed in as ${currentAuthUser.name} on this device`);
 }
 
 function handleSignOut() {
   currentAuthUser = null;
   localStorage.removeItem(AUTH_KEY);
   renderAuthState();
-  showToast("Signed out successfully.");
+  showToast("Signed out");
 }
 
 function renderAuthState() {
-  const authBox = document.getElementById("authContainer");
-  const syncStatusPill = document.getElementById("syncStatusPill");
-  if (!authBox || !syncStatusPill) return;
+  const box = document.getElementById("authContainer");
+  if (!box) return;
 
   if (currentAuthUser) {
-    const initial = currentAuthUser.email.charAt(0).toUpperCase();
-    authBox.innerHTML = `
+    const initial = escapeHtml(currentAuthUser.email.charAt(0).toUpperCase());
+    box.innerHTML = `
       <div class="auth-profile">
-        <div class="avatar-badge">${initial}</div>
+        <span class="avatar" aria-hidden="true">${initial}</span>
         <span class="auth-email">${escapeHtml(currentAuthUser.email)}</span>
-        <button class="btn btn-sm btn-outline" onclick="handleSignOut()" style="padding:4px 8px; font-size:0.75rem;">Exit</button>
-      </div>
-    `;
-    syncStatusPill.innerHTML = `<span>● Cloud Synced (${escapeHtml(currentAuthUser.name)})</span>`;
-    syncStatusPill.style.color = "#6ee7b7";
+        <button type="button" class="btn btn-quiet btn-sm" onclick="handleSignOut()">Sign out</button>
+      </div>`;
   } else {
-    authBox.innerHTML = `<button class="btn btn-primary btn-sm" onclick="openAuthModal('signin')">Sign In</button>`;
-    syncStatusPill.innerHTML = `<span>● Local Storage Active</span>`;
-    syncStatusPill.style.color = "#93c5fd";
+    box.innerHTML = `<button type="button" class="btn btn-secondary btn-sm" onclick="openAuthDialog()">Sign in</button>`;
   }
 }
 
-function closeModal(id) {
-  document.getElementById(id).classList.remove("active");
+/* ---------- Colour theme (per device) ---------- */
+
+function applyTheme(value) {
+  const root = document.documentElement;
+  const explicit = value === "light" || value === "dark";
+  if (explicit) root.dataset.theme = value;
+  else delete root.dataset.theme;
+  syncThemeControl();
 }
 
-function closeModalOutside(e, id) {
-  if (e.target.id === id) closeModal(id);
+/* Keeps the header control in step with whatever theme the page is showing. */
+function syncThemeControl() {
+  const current = document.documentElement.dataset.theme || "system";
+  document.querySelectorAll("#themeToggle button").forEach((button) => {
+    button.setAttribute("aria-pressed", String(button.dataset.themeValue === current));
+  });
 }
 
-/* Helper Utilities */
+function setTheme(value) {
+  if (value === "light" || value === "dark") localStorage.setItem(THEME_KEY, value);
+  else localStorage.removeItem(THEME_KEY);
+  applyTheme(value);
+}
+
+/* ---------- Helpers ---------- */
+
+function categoryLabel(category) {
+  return CATEGORIES[category] || capitalize(String(category));
+}
+
 function capitalize(str) {
   return str.charAt(0).toUpperCase() + str.slice(1);
 }
+
 function escapeHtml(str) {
-  const div = document.createElement("div");
-  div.textContent = str;
-  return div.innerHTML;
+  return String(str).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 }
 
-// Initialize application
+/* ---------- Init ---------- */
+
 document.addEventListener("DOMContentLoaded", () => {
-  const dateInput = document.getElementById("itemDateInput");
-  if (dateInput) {
-    const todayStr = new Date().toISOString().split("T")[0];
-    dateInput.min = todayStr;
-    dateInput.value = getFutureDate(180); // Default to 6-month disaster rotation
+  setDefaultDate();
+
+  const dialog = document.getElementById("authDialog");
+  if (dialog) {
+    dialog.addEventListener("click", (e) => {
+      if (e.target === dialog) dialog.close();
+    });
   }
 
+  syncThemeControl();
   renderAuthState();
-  renderItems();
+  renderAll();
   updateCalculator();
 });
