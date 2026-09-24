@@ -24,9 +24,10 @@ Open `index.html` in a browser.
 ## Files
 
 ```
-index.html    page structure and text
-style.css     colours, type, layout, and components
-index.js      data, rendering, actions, and saving to localStorage
+index.html         page structure and text
+css/style.css      colours, type, layout, and components
+js/index.js        data, rendering, actions, and saving to localStorage
+assets/fonts/      Poppins and IBM Plex Mono as woff2 files, with their licence note
 ```
 
 ## Data stored in the browser

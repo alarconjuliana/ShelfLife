@@ -9,6 +9,104 @@
    status colours are semantic (they mean time left) and are used nowhere else.
    ========================================================================== */
 
+/* Fonts, served from ../assets/fonts so the page works offline (licences in assets/fonts/README.txt) */
+@font-face {
+  font-family: "IBM Plex Mono";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("../assets/fonts/ibm-plex-mono-400-latin-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "IBM Plex Mono";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("../assets/fonts/ibm-plex-mono-400-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "IBM Plex Mono";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("../assets/fonts/ibm-plex-mono-500-latin-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "IBM Plex Mono";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("../assets/fonts/ibm-plex-mono-500-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Poppins";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("../assets/fonts/poppins-400-latin-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "Poppins";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("../assets/fonts/poppins-400-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Poppins";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("../assets/fonts/poppins-500-latin-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "Poppins";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("../assets/fonts/poppins-500-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Poppins";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("../assets/fonts/poppins-600-latin-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "Poppins";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("../assets/fonts/poppins-600-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Poppins";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("../assets/fonts/poppins-700-latin-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "Poppins";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("../assets/fonts/poppins-700-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
 :root {
   color-scheme: light dark;
 
@@ -118,6 +216,7 @@ body {
   line-height: 1.55;
   color: var(--ink);
   background: var(--bg);
+  padding-inline: env(safe-area-inset-left) env(safe-area-inset-right);
   -webkit-font-smoothing: antialiased;
 }
 
@@ -148,6 +247,12 @@ select,
 output {
   font: inherit;
   color: inherit;
+}
+a,
+button,
+input,
+select {
+  touch-action: manipulation;
 }
 button {
   cursor: pointer;
@@ -199,7 +304,7 @@ ol {
 }
 
 .section {
-  padding-block: clamp(40px, 6vw, 72px);
+  padding-block: clamp(48px, 6vw, 72px);
 }
 .section-tinted {
   background: var(--surface-2);
@@ -226,7 +331,7 @@ ol {
   backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--line);
 }
-@media (min-width: 768px) {
+@media (min-width: 1024px) {
   .site-header {
     position: sticky;
     top: 0;
@@ -236,8 +341,7 @@ ol {
 .header-row {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 0 16px;
+  gap: 12px;
   min-height: var(--header-h);
 }
 .brand {
@@ -250,6 +354,21 @@ ol {
 }
 .brand:hover {
   color: var(--brand-ink);
+}
+.site-menu {
+  display: contents;
+}
+.site-nav {
+  order: 1;
+}
+.theme-toggle {
+  order: 2;
+}
+.header-auth {
+  order: 3;
+}
+.menu-toggle {
+  display: none;
 }
 .site-nav ul {
   display: flex;
@@ -274,25 +393,161 @@ ol {
   color: var(--ink);
   background: var(--surface-2);
 }
-@media (max-width: 767px) {
+/* Tablet header: brand, theme picker, and sign-in on one row, links on a second row. */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .header-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    grid-template-areas:
+      "brand theme auth"
+      "nav nav nav";
+    gap: 6px 12px;
+    padding-block: 12px 10px;
+    min-height: 0;
+  }
+  .brand {
+    grid-area: brand;
+    margin: 0;
+  }
+  .theme-toggle {
+    grid-area: theme;
+  }
+  .header-auth {
+    grid-area: auth;
+  }
   .site-nav {
-    order: 3;
-    flex-basis: 100%;
-    overflow-x: auto;
-    margin-inline: -16px;
-    padding-inline: 16px;
-    scrollbar-width: none;
+    grid-area: nav;
   }
   .site-nav ul {
-    padding-bottom: 10px;
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 4px;
+  }
+  .site-nav a {
+    display: block;
+    padding: 8px 4px;
+    text-align: center;
+    white-space: normal;
   }
 }
 
-.header-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+/* Phone header: brand, theme picker, and a menu button; links and sign-in open beneath. */
+@media (max-width: 767px) {
+  .header-row {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    grid-template-areas:
+      "brand theme toggle"
+      "menu menu menu";
+    gap: 0 10px;
+    padding-block: 10px;
+    min-height: 0;
+  }
+  .brand {
+    grid-area: brand;
+    margin: 0;
+    align-self: center;
+  }
+  .theme-toggle {
+    grid-area: theme;
+    justify-self: end;
+  }
+  .theme-toggle button {
+    min-height: 28px;
+    padding: 0 7px;
+    font-size: 0.75rem;
+  }
+  .menu-toggle {
+    grid-area: toggle;
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    border: 1px solid var(--line-2);
+    border-radius: var(--r-ctl);
+    background: var(--surface);
+    color: var(--ink);
+  }
+  .menu-bars {
+    position: relative;
+    display: block;
+    width: 18px;
+    height: 2px;
+    border-radius: 1px;
+    background: currentColor;
+    transition: background-color var(--dur) var(--ease);
+  }
+  .menu-bars::before,
+  .menu-bars::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    width: 18px;
+    height: 2px;
+    border-radius: 1px;
+    background: currentColor;
+    transition: transform var(--dur) var(--ease);
+  }
+  .menu-bars::before {
+    transform: translateY(-6px);
+  }
+  .menu-bars::after {
+    transform: translateY(6px);
+  }
+  .menu-toggle[aria-expanded="true"] .menu-bars {
+    background: transparent;
+  }
+  .menu-toggle[aria-expanded="true"] .menu-bars::before {
+    transform: rotate(45deg);
+  }
+  .menu-toggle[aria-expanded="true"] .menu-bars::after {
+    transform: rotate(-45deg);
+  }
+  .site-menu {
+    display: none;
+    grid-area: menu;
+    padding-top: 10px;
+  }
+  .site-menu.open {
+    display: block;
+  }
+  .site-nav ul {
+    flex-direction: column;
+    gap: 0;
+  }
+  .site-nav a {
+    display: block;
+    padding: 12px 4px;
+    border-top: 1px solid var(--line);
+    border-radius: 0;
+    font-size: var(--fs-md);
+  }
+  .header-auth {
+    padding: 12px 0 4px;
+    border-top: 1px solid var(--line);
+  }
+  .header-auth .btn {
+    width: 100%;
+    min-height: 44px;
+  }
+  .header-auth .auth-profile {
+    justify-content: space-between;
+  }
+  .header-auth .auth-profile .btn {
+    width: auto;
+    min-height: 40px;
+  }
 }
+@media (max-width: 340px) {
+  .brand {
+    font-size: 1.125rem;
+  }
+  .theme-toggle button {
+    padding: 0 6px;
+    font-size: 0.6875rem;
+  }
+}
+
 .theme-toggle {
   display: inline-flex;
   padding: 2px;
@@ -449,6 +704,14 @@ ol {
   flex-wrap: wrap;
   gap: 12px;
 }
+@media (max-width: 480px) {
+  .hero-lead {
+    font-size: var(--fs-lg);
+  }
+  .hero-actions .btn {
+    width: 100%;
+  }
+}
 
 .next-up {
   padding: 20px 22px 18px;
@@ -523,7 +786,7 @@ ol {
   margin-top: 2px;
   font-size: var(--fs-xs);
 }
-@media (max-width: 640px) {
+@media (max-width: 899px) {
   .scale {
     grid-template-columns: 1fr;
     gap: 6px;
@@ -684,8 +947,10 @@ ol {
   display: flex;
   flex-direction: column;
   max-height: 480px;
-  margin-top: 16px;
+  margin: 16px 0 0;
+  padding: 0;
   overflow-y: auto;
+  list-style: none;
   border-top: 1px solid var(--line);
 }
 .row {
@@ -778,11 +1043,37 @@ ol {
   font-size: 0.6875rem;
 }
 @media (max-width: 720px) {
+  .panel-head,
+  .panel-foot {
+    padding-inline: 16px;
+  }
+  .panel-body {
+    padding: 16px;
+  }
+  .next-up {
+    padding: 16px;
+  }
+  .toolbar {
+    gap: 12px;
+  }
+  .chips {
+    gap: 8px;
+  }
+  .btn-sm,
+  .chip {
+    min-height: 40px;
+  }
+  .icon-btn {
+    width: 40px;
+    height: 40px;
+  }
   .row {
-    grid-template-columns: 72px minmax(0, 1fr);
+    grid-template-columns: 64px minmax(0, 1fr);
     grid-template-areas:
       "days main"
       "actions actions";
+    gap: 12px 14px;
+    padding: 16px 0;
   }
   .row-log {
     grid-template-columns: minmax(0, 1fr);
@@ -790,11 +1081,30 @@ ol {
       "main"
       "actions";
   }
+  .days {
+    min-width: 64px;
+  }
+  .days-n {
+    font-size: 1.375rem;
+  }
   .row-actions {
     justify-content: flex-start;
+    gap: 8px;
   }
   .rows {
     max-height: none;
+  }
+}
+@media (max-width: 480px) {
+  .row:not(.row-log) .row-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+  .row:not(.row-log) .row-actions .btn-secondary {
+    grid-column: 1 / -1;
+  }
+  .row:not(.row-log) .row-actions .btn-quiet {
+    border: 1px solid var(--line);
   }
 }
 
@@ -1000,8 +1310,14 @@ input[type="range"] {
    -------------------------------------------------------------------------- */
 
 .dialog {
+  position: fixed;
+  inset: 0;
   width: min(100% - 32px, 440px);
+  height: fit-content;
+  max-height: calc(100dvh - 32px);
+  margin: auto; /* centres the modal; the global margin reset would otherwise pin it top-left */
   padding: 0;
+  overflow: auto;
   border: 1px solid var(--line);
   border-radius: var(--r-box);
   background: var(--surface);
@@ -1086,7 +1402,7 @@ input[type="range"] {
 .toast-region {
   position: fixed;
   right: 16px;
-  bottom: 16px;
+  bottom: calc(16px + env(safe-area-inset-bottom));
   z-index: 40;
   display: flex;
   flex-direction: column;

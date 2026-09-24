@@ -140,7 +140,7 @@ function daysMarkup(days) {
 }
 
 function emptyMarkup(title, body) {
-  return `<div class="empty"><strong>${title}</strong><span>${body}</span></div>`;
+  return `<li class="empty"><strong>${title}</strong><span>${body}</span></li>`;
 }
 
 function countLabel(n, singular, plural) {
@@ -156,6 +156,7 @@ function renderNextUp() {
 
   if (dateEl) {
     dateEl.textContent = new Date().toLocaleDateString("en-PH", { month: "short", day: "numeric" });
+    dateEl.dateTime = isoDaysFromNow(0);
   }
 
   const soonest = items
@@ -164,7 +165,7 @@ function renderNextUp() {
     .slice(0, 3);
 
   if (soonest.length === 0) {
-    list.innerHTML = `<li class="next-up-empty">Nothing tracked yet. Add your first item in the tracker.</li>`;
+    list.innerHTML = `<li class="next-up-empty">Nothing tracked yet. Add an item in the tracker.</li>`;
     if (foot) foot.textContent = "";
     return;
   }
@@ -186,7 +187,7 @@ function renderNextUp() {
     })
     .join("");
 
-  if (foot) foot.textContent = `${countLabel(items.length, "item", "items")} tracked in this browser`;
+  if (foot) foot.textContent = `${countLabel(items.length, "item", "items")} tracked`;
 }
 
 function renderItems() {
@@ -213,8 +214,8 @@ function renderItems() {
   if (visible.length === 0) {
     container.innerHTML =
       items.length === 0
-        ? emptyMarkup("Nothing tracked yet", "Add your first item with the button above.")
-        : emptyMarkup("No items match", "Try another category or clear the search.");
+        ? emptyMarkup("Nothing tracked yet", "Add an item with the button above.")
+        : emptyMarkup("No items match", "Try another filter or clear the search.");
   } else {
     container.innerHTML = visible.map(itemRow).join("");
   }
@@ -229,25 +230,28 @@ function renderItems() {
 function itemRow(item) {
   const status = tierFor(item.days);
   const isGoBag = item.category === "gobag";
+  const name = escapeHtml(item.name);
+  const date = escapeHtml(item.date);
+  const primary = isGoBag ? "Mark rotated" : "Mark consumed";
   return `
-    <div class="row tier-${status.tier}">
+    <li class="row tier-${status.tier}">
       ${daysMarkup(item.days)}
       <div class="row-main">
-        <div class="row-name">${escapeHtml(item.name)}</div>
+        <div class="row-name">${name}</div>
         <div class="row-meta">
           <span class="${isGoBag ? "tag" : ""}">${categoryLabel(item.category)}</span>
-          <span class="stamp">EXP ${escapeHtml(item.date)}</span>
+          <time class="stamp" datetime="${date}">EXP ${date}</time>
           <span class="badge">${status.label}</span>
         </div>
       </div>
       <div class="row-actions">
-        <button type="button" class="btn btn-secondary btn-sm" onclick="consumeItem('${item.id}')">
-          ${isGoBag ? "Mark rotated" : "Mark consumed"}
+        <button type="button" class="btn btn-secondary btn-sm" onclick="consumeItem('${item.id}')" aria-label="${primary}: ${name}">
+          ${primary}
         </button>
-        <button type="button" class="btn btn-quiet btn-sm" onclick="discardItem('${item.id}')">Discard</button>
-        <button type="button" class="btn btn-quiet btn-sm" onclick="removeItem('${item.id}')">Remove</button>
+        <button type="button" class="btn btn-quiet btn-sm" onclick="discardItem('${item.id}')" aria-label="Discard: ${name}">Discard</button>
+        <button type="button" class="btn btn-quiet btn-sm" onclick="removeItem('${item.id}')" aria-label="Remove: ${name}">Remove</button>
       </div>
-    </div>`;
+    </li>`;
 }
 
 /* Reads a history record's action. Older records stored the note inside the
@@ -273,14 +277,16 @@ function matchesHistoryFilter(record) {
   return verb === currentHistoryFilter;
 }
 
-function formatLogged(record) {
+/* Returns markup for the logged time: a <time> when the record has a real timestamp. */
+function loggedMarkup(record) {
   if (record.loggedAt) {
     const d = new Date(record.loggedAt);
     if (!Number.isNaN(d.getTime())) {
-      return d.toLocaleString("en-PH", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+      const text = d.toLocaleString("en-PH", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+      return `<time datetime="${escapeHtml(record.loggedAt)}">${escapeHtml(text)}</time>`;
     }
   }
-  return record.timestamp || "";
+  return escapeHtml(record.timestamp || "");
 }
 
 function renderHistory() {
@@ -294,28 +300,29 @@ function renderHistory() {
   if (visible.length === 0) {
     container.innerHTML =
       history.length === 0
-        ? emptyMarkup("No history yet", "Items you consume, discard, or remove will be logged here.")
-        : emptyMarkup("Nothing in this filter", "Choose another filter to see more of the log.");
+        ? emptyMarkup("No history yet", "Consumed, discarded, and removed items appear here.")
+        : emptyMarkup("Nothing in this filter", "Try another filter.");
     return;
   }
 
   container.innerHTML = visible
     .map((record) => {
       const { verb, note, tier } = actionParts(record);
+      const name = escapeHtml(record.name);
       return `
-        <div class="row row-log tier-${tier}">
+        <li class="row row-log tier-${tier}">
           <div class="row-main">
-            <div class="row-name">${escapeHtml(record.name)}</div>
+            <div class="row-name">${name}</div>
             <div class="row-meta">
               <span>${categoryLabel(record.category)}</span>
-              <span>Logged ${escapeHtml(formatLogged(record))}</span>
+              <span>Logged ${loggedMarkup(record)}</span>
             </div>
           </div>
           <div class="row-actions">
             <span class="badge">${verb}${note ? `, ${note}` : ""}</span>
-            <button type="button" class="btn btn-quiet btn-sm" onclick="restoreFromHistory('${record.id}')">Restore</button>
+            <button type="button" class="btn btn-quiet btn-sm" onclick="restoreFromHistory('${record.id}')" aria-label="Restore: ${name}">Restore</button>
           </div>
-        </div>`;
+        </li>`;
     })
     .join("");
 }
@@ -547,6 +554,7 @@ function handleAuthSubmit(e) {
   localStorage.setItem(AUTH_KEY, JSON.stringify(currentAuthUser));
   e.target.reset();
   closeAuthDialog();
+  toggleMenu(false);
   renderAuthState();
   showToast(`Signed in as ${currentAuthUser.name} on this device`);
 }
@@ -573,6 +581,17 @@ function renderAuthState() {
   } else {
     box.innerHTML = `<button type="button" class="btn btn-secondary btn-sm" onclick="openAuthDialog()">Sign in</button>`;
   }
+}
+
+/* ---------- Phone menu ---------- */
+
+function toggleMenu(force) {
+  const menu = document.getElementById("siteMenu");
+  const button = document.getElementById("menuToggle");
+  if (!menu || !button) return;
+  const open = typeof force === "boolean" ? force : !menu.classList.contains("open");
+  menu.classList.toggle("open", open);
+  button.setAttribute("aria-expanded", String(open));
 }
 
 /* ---------- Colour theme (per device) ---------- */
@@ -622,6 +641,14 @@ document.addEventListener("DOMContentLoaded", () => {
   if (dialog) {
     dialog.addEventListener("click", (e) => {
       if (e.target === dialog) dialog.close();
+    });
+  }
+
+  const menu = document.getElementById("siteMenu");
+  if (menu) {
+    menu.querySelectorAll("a").forEach((link) => link.addEventListener("click", () => toggleMenu(false)));
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") toggleMenu(false);
     });
   }
 
